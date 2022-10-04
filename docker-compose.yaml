@@ -1,0 +1,82 @@
+version: '3.7'
+
+services:
+
+  zookeeper:
+    image: wurstmeister/zookeeper:3.4.6
+    expose:
+      - "2181"
+    tmpfs:
+      - /opt/zookeeper-3.4.6/data
+
+  kafka:
+    image: wurstmeister/kafka:latest
+    depends_on:
+      - zookeeper
+    expose:
+      - "9092"
+    tmpfs:
+      - /kafka
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://localhost:9094,OUTSIDE://kafka:9092
+      KAFKA_LISTENERS: INSIDE://:9094,OUTSIDE://:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      LOG4J_LOGGER_KAFKA_AUTHORIZER_LOGGER: DEBUG, authorizerAppender
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--zookeeper", "zookeeper:2181"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
+  data-generator:
+    image: data-generator
+    container_name: data-generator
+    build:
+      context: data-generator
+      dockerfile: Dockerfile
+    environment:
+      BOOTSTRAP_SERVER_URL: "kafka:9092"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  data-aggregator:
+    image: data-aggregator
+    container_name: data-aggregator
+    build:
+      context: data-aggregator
+      dockerfile: Dockerfile
+    environment:
+      BOOTSTRAP_SERVER_URL: "kafka:9092"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_DB: "tgam"
+      # POSTGRESQL_SERVER_URL: "postgres:5432"
+    ports:
+      - "5432:5432"
+  
+  data-api:
+    image: data-api
+    container_name: data-api
+    build:
+      context: data-api
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_USER: "postgres"
+      POSTGRES_DB: "tgam"
+    ports:
+      - 5000:5000
+    depends_on:
+      - postgres
+  
+
