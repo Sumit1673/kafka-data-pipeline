@@ -1,0 +1,16 @@
+{
+    "ticker": [
+      {
+        "name": "AMZN",
+        "price": 1902
+      },
+      {
+        "name": "MSFT",
+        "price": 107
+      },
+      {
+        "name": "AAPL",
+        "price": 215
+      }
+    ]
+  }
